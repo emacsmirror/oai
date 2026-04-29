@@ -70,9 +70,10 @@
 (require 'ol)
 (require 'oai-debug)
 (require 'oai-block)
+(require 'oai-block-msgs)
 ;; TODO!!!!!!!!!!!
-;; for: oai-restapi--modify-vector-last-user-content,
-;; oai-restapi--modify-vector-content, oai-restapi-add-max-tokens-recommendation
+;; for: oai-block-msgs--modify-vector-last-user-content,
+;; oai-block-msgs--modify-vector-content, oai-restapi-add-max-tokens-recommendation
 ;; oai-restapi--get-length-recommendation
 ;; (require 'oai-restapi) ; disabled because of reverse dependency with oai-restapi
 (require 'org-links nil 'noerror)
@@ -209,24 +210,17 @@ Return  name of language."
          (mode-symbol-string (if symb
                                  (symbol-name path-or-mode-string)
                                ;; else - string - path or mode
-                               ;; (print (list "bvb" path-or-mode-string (symbol-name (assoc-default path-or-mode-string auto-mode-alist 'string-match))))
-                               ;; (or (when (string-match "\\.ai\\'" path-or-mode-string)
-                               ;;       "ai")
                                (symbol-name (assoc-default path-or-mode-string auto-mode-alist 'string-match))))
          (mode-symbol-string (if (and (not symb) (string-equal mode-symbol-string "nil"))
                                  path-or-mode-string ; string with mode name
                                ;; else
                                mode-symbol-string))
          ;; for "emacs-lisp-mode" - remove mode
-         ;; (string-remove-suffix "-mode" "emacs-lisp-mode")
          (mode-string (when (string-suffix-p "-mode" mode-symbol-string)
                           (string-remove-suffix "-mode" mode-symbol-string))))
-
-         ;; (apply #'mapconcat #'identity (butlast (string-split mode-symbol-string "-")) '("-"))))
-    (print mode-symbol-string)
     (cond
      ((and mode-string
-           (car (rassq (intern mode-string) org-src-lang-modes))))
+            (car (rassq (intern mode-string) org-src-lang-modes))))
      ((and (not (string-empty-p mode-string))
            mode-string))
      ;; special cases:
@@ -294,7 +288,7 @@ To detect LANG use `oai-block-tags--filepath-to-language'.
         (oai--debug "oai-block-tags--compose-m-block N3" content)
       (concat (when header (concat "\n" header)) content))))) ; no error if content is nil
 
-(defun oai-block-tags--compose-block-for-path (path-string content)
+(defun oai-block-tags--compose-block-for-path (path-string content &optional lang)
   "Return mardown block with description.
 PATH-STRING may be path to directory or to a file.
 For provided PATH-STRING and CONTENT string, return string that will be
@@ -302,23 +296,42 @@ For provided PATH-STRING and CONTENT string, return string that will be
   (oai-block-tags--compose-m-block
    ;; content:
    content
-   :lang (oai-block-tags--filepath-to-language path-string)
+   :lang (or lang (oai-block-tags--filepath-to-language path-string))
    :header (concat "Here " (file-name-nondirectory (directory-file-name path-string))
                    (when (file-directory-p path-string)
                        " directory contents:"))))
 
+(defun oai-block-tags--file-binary-p (file)
+  "Return t if FILE contains a null byte in its first 1024 bytes."
+  (when (and (file-regular-p file)
+             (file-readable-p file))
+    (with-temp-buffer
+      (insert-file-contents-literally file nil 0 1024)
+      (goto-char (point-min))
+      (search-forward "\0" nil t))))
 
 (defun oai-block-tags--compose-block-for-path-full (path-string)
   "Return file or directory in prepared mardown block.
+If PATH-STRING is image, replace link to [[image:/path]].
+If PATH-STRING is binary not image, signal error.
 PATH-STRING may be path to file or a directory.
 Return string or nil or raise user-error."
   (oai--debug "oai-block-tags--compose-block-for-path-full %s" path-string)
-  (oai-block-tags--compose-block-for-path path-string
-                                          (if (file-directory-p path-string)
-                                              (oai-block-tags--get-directory-content path-string)
-                                            ;; else
-                                            ;; raise user-error if something
-                                            (org-file-contents path-string)))) ; oai-block-tags--read-file-to-string-safe
+  ;; (let ((lang (oai-block-tags--filepath-to-language path-string)))
+  ;;   (if (member-ignore-case lang '("image" "elisp-byte-code" "auto")
+  (if (string-equal (oai-block-tags--filepath-to-language path-string)
+                    "image")
+      (concat "[[image:" path-string "]]")
+    ;; else
+    (when (and (not (file-directory-p file)
+                    (oai-block-tags--file-binary-p path-string)))
+      (user-error "File link is binary and not supported for text request."))
+    (oai-block-tags--compose-block-for-path path-string
+                                            (if (file-directory-p path-string)
+                                                (oai-block-tags--get-directory-content path-string)
+                                              ;; else
+                                              ;; raise user-error if something
+                                              (org-file-contents path-string))))) ; oai-block-tags--read-file-to-string-safe
 
 ;; -=-= help functions:  block-at-point, contents-area, get-content
 
@@ -388,7 +401,7 @@ Return vector with messages for ai block, or string if REQ-TYPE is
 
         ;; else - req-type = chat
         (let* (;; 1) get messages as vector from content
-               (messages (oai-block-collect-chat-messages-at-point element
+               (messages (oai-block-msgs--collect-chat-messages-at-point element
                                                                    sys-prompt
                                                                    ;; sys-prompt-for-all-messages
                                                                    max-tokens-string
@@ -397,11 +410,11 @@ Return vector with messages for ai block, or string if REQ-TYPE is
                ;; 2) noweb expansion
                (messages (if noweb-control
                              (if links-only-last
-                                 (oai-restapi--modify-vector-last-user-content messages
+                                 (oai-block-msgs--modify-vector-last-user-content messages
                                                                                #'oai-block--apply-noweb
                                                                                oai-block-tags-noweb-split-messages)
                                ;; else
-                               (oai-restapi--modify-vector-content messages
+                               (oai-block-msgs--modify-vector-content messages
                                                                    #'oai-block--apply-noweb
                                                                    'user
                                                                    oai-block-tags-noweb-split-messages))
@@ -410,12 +423,12 @@ Return vector with messages for ai block, or string if REQ-TYPE is
                ;; 3) tags and links expansion
                (messages (if (not disable-tags)
                              (if links-only-last
-                                 (oai-restapi--modify-vector-last-user-content messages
+                                 (oai-block-msgs--modify-vector-last-user-content messages
                                                                                #'oai-block-tags-replace
                                                                                oai-block-tags-tagslinks-split-messages
                                                                                ai-block-markers)
                                ;; else
-                               (oai-restapi--modify-vector-content messages
+                               (oai-block-msgs--modify-vector-content messages
                                                                    #'oai-block-tags-replace
                                                                    'user
                                                                    oai-block-tags-tagslinks-split-messages
@@ -427,7 +440,7 @@ Return vector with messages for ai block, or string if REQ-TYPE is
                (messages (if not-clear-properties
                              messages
                            ;; else
-                           (oai-restapi--modify-vector-content messages #'oai-block-tags--clear-properties))))
+                           (oai-block-msgs--modify-vector-content messages #'oai-block-tags--clear-properties))))
           ;; (oai--debug "oai-block-tags-get-content-ai-messages2" messages)
           messages))))) ; return
 
@@ -481,7 +494,7 @@ Return string with expanded content."
     (cond
      ((string-equal "ai" (org-element-property :type element))
       (string-trim
-       (oai-block--stringify-chat-messages
+       (oai-block-msgs--stringify-chat-messages
         (oai-block-tags-get-content-ai-messages element noweb-control links-only-last not-clear-properties ai-block-markers disable-tags req-type sys-prompt max-tokens-string))))
 
      ((eq (org-element-type element) 'src-block)
@@ -1123,7 +1136,7 @@ found."
 Check every type of links if it exist in text, find replacement for the
 fist link and replace link substring with
 `oai-block-tags--replace-last-regex-smart' once.
-Used for function `oai-restapi--modify-vector-content'.
+Used for function `oai-block-msgs--modify-vector-content'.
 Uses `oai-block--block-header-marker' variable to check that target of
 link or noweb reference don't point to current block to prevent
 recursion, created with `oai-block-get-header-marker'.
@@ -1221,7 +1234,7 @@ Return modified string with text properties or the same string."
 
 (defun oai-block-tags--clear-properties (string)
   "Remove text properties from STRING.
-Used as argument fo function `oai-restapi--modify-vector-content'.
+Used as argument fo function `oai-block-msgs--modify-vector-content'.
 Used for `oai-expand-block' that show fontificated of markdown blocks,
 made by `oai-block-tags--replace-last-regex-smart'.
 Return modified STRING."
