@@ -1158,14 +1158,29 @@ test
 ;; -=-= Test: oai-block-tags-replace-images
 
 (ert-deftest oai-tests-block-tags--replace-images ()
-  (should (equal
-           (let* ((f (make-temp-file "test" nil ".JPG")))
+  (let (res
+        (eres '[(:type "text" :text "bla bla") (:type "image_url" :image_url (:url "data:image/jpeg;base64,ZHVtbXk=")) (:type "text" :text "vvvv\nSee image above.\ncccc")]))
+    (setq res
+          (let* ((f (make-temp-file "test" nil ".JPG")))
              (with-temp-file f (insert "dummy"))
              (prog1
-                 (oai-block-tags-replace-images (concat "bla bla [[image:" f "]] vvvv [[image:" f "]] cccc"))
-               (delete-file f)))
-           '[(:type "text" :text "bla bla") (:type "image_url" :image_url (:url "data:image/jpeg;base64,ZHVtbXk=")) (:type "text" :text "vvvv\nSee image above.\ncccc")]))
-  (should (equal (oai-block-tags-replace-images "string") "string")))
+                 (oai-block-tags-replace-images (concat "bla bla @image:" f "@ vvvv @image:" f "@ cccc"))
+               (delete-file f))))
+  (should (equal res eres))
+  (should (equal (oai-block-tags-replace-images "string") "string"))
+
+  (setq res (let* ((f (make-temp-file "test" nil ".JPG")))
+              (with-temp-file f (insert "dummy"))
+              (prog1
+                  (oai-block-tags-replace-images (oai-block-tags-replace (concat "bla bla [[" f "]] vvvv [[" f "]] cccc")))
+                (delete-file f))))
+  (should (equal res eres))
+  (setq res (let* ((f (make-temp-file "test" nil ".JPG")))
+              (with-temp-file f (insert "dummy"))
+              (prog1
+                  (oai-block-tags-replace-images (oai-block-tags-replace (concat "bla bla @" f " vvvv @" f " cccc")))
+                (delete-file f))))
+  (should (equal res eres))))
 
 (let* ((f (make-temp-file "test" nil ".JPG")))
            (with-temp-file f (insert "dummy"))

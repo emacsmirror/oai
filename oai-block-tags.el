@@ -327,17 +327,20 @@ Use two methods by extension and by reading file."
 
 (defun oai-block-tags--compose-block-for-path-full (path-string)
   "Return file or directory in prepared mardown block.
-If PATH-STRING is image, replace link to [[image:/path]].
+If PATH-STRING is image, replace link to @@image:/path@@.
 If PATH-STRING is binary not image, signal error.
 PATH-STRING may be path to file or a directory.
 Bound with `oai-block-tags-replace-images' by hardcoded regex.
+Called in two placed: for links
+ `oai-block-tags--get-replacement-for-org-link' and for tags
+ `oai-block-tags-replace'.
 Return string or nil or raise user-error."
   (oai--debug "oai-block-tags--compose-block-for-path-full %s" path-string)
   ;; (let ((lang (oai-block-tags--filepath-to-language path-string)))
   ;;   (if (member-ignore-case lang '("image" "elisp-byte-code" "auto")
   (if (string-equal (oai-block-tags--filepath-to-language path-string)
                     "image")
-      (concat "[[image:" path-string "]]")
+      (concat "@image:" path-string "@")
     ;; else
     (when (and (not (file-directory-p path-string))
                (oai-block-tags--file-binary-p path-string))
@@ -1317,7 +1320,7 @@ Return string or vector."
   (let (ret paths; lists
         desc
         path
-        (items (oai-block-tags--chunk-around-pattern "\\[\\[image:\\([^]]+\\)\\]\\]" string)))
+        (items (oai-block-tags--chunk-around-pattern "@image:\\([^@]+\\)@" string)))
     (if (not items)
         string
       ;; else

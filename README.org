@@ -19,7 +19,7 @@ O is Org-mode, ai is AI. Don't confuse with “OpenAPI Initiative” (OAI) organ
 - *Noweb and tangling* support as if it is src block of Org mode
 - *Parallel requests* in the same or different buffer without blocking
 - *Highlighting* of markdown big blocks, tags and links, headers, bold text, Org tables, LaTeX
-- *Multimodal reqests* support sending images
+- *Request with image* like ~@/a.jpg~ or ~[[/a.jpg]]~ or ~[[file:/a.jpg]]~
 - *Transparency* for inspecting raw data of request, powerful debugger
 - *Customization and autofilling*, hooks
 - *Prompt engineering* tools, there is ~:chain~ of calls out-of-the-box
@@ -316,6 +316,8 @@ For make *chain of calls* we have ~oai-async1.el~ static framework that simplify
 
 For *keys remapping* we bind keys to Org commands or key if pointer is not in ai-block, we call original key or command with “hack” functions.
 
+** How images sent?
+In ~oai-block-tags-replace~ we replace links and tags that detecs as “image” by ~oai-block-tags--filepath-to-language~ with “@image:/path@” strings. And then split message to vector by such strings. All other code aware that :content of “messages” may be a vector.
 * Other packages
 - Navigation in Dired, Packages, Buffers modes https://github.com/Anoncheg1/firstly-search
 - Search with Chinese	https://github.com/Anoncheg1/pinyin-isearch
