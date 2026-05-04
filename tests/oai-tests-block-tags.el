@@ -1119,6 +1119,59 @@ test
 ;; (oai-block-tags-replace (oai-block-get-content))
 
 
+;; -=-= Test: oai-block-tags--image-file-to-imageurl
+(ert-deftest oai-tests-block-tags--image-file-to-imageurl ()
+  (let ((f (make-temp-file "test" nil ".gif")))
+  (prog1
+      (should-error (oai-block-tags--image-file-to-imageurl f) :type 'user-error)
+    (delete-file f)))
+
+  (let* ((f (make-temp-file "test" nil ".JPG")))
+    (with-temp-file f (insert "dummy"))
+    (prog1
+        (should (equal (oai-block-tags--image-file-to-imageurl f)
+                       '(:type "image_url" :image_url (:url "data:image/jpeg;base64,ZHVtbXk="))))
+      (delete-file f)))
+
+  (should-error (oai-block-tags--image-file-to-imageurl "/tmp/this_file_does_not_exist.jpg")
+                :type 'user-error))
+
+;; -=-= Test: oai-block-tags--chunk-around-pattern
+(ert-deftest oai-tests-block-tags--chunk-around-pattern ()
+  (let (res)
+    (setq res
+          (oai-block-tags--chunk-around-pattern "\\[\\([^]]+\\)\\]" "[asd]vvvv[aa]bbb"))
+    (should (equal res '(("" . "asd") ("vvvv" . "aa") ("bbb" . ""))))
+    (setq res
+          (oai-block-tags--chunk-around-pattern "\\[\\([^]]+\\)\\]" "vvvv[aa]bbb[asv]"))
+    (should (equal res '(("vvvv" . "aa") ("bbb" . "asv"))))
+    (setq res
+          (oai-block-tags--chunk-around-pattern "\\[\\([^]]+\\)\\]" "vvvv"))
+    (should (equal res nil))
+    (setq res
+          (oai-block-tags--chunk-around-pattern "\\[\\([^]]+\\)\\]" "[aa]"))
+    (should (equal res '(("" . "aa"))))
+    (setq res
+          (oai-block-tags--chunk-around-pattern "vvvv" "asdasd"))
+    (should (equal res nil))))
+
+;; -=-= Test: oai-block-tags-replace-images
+
+(ert-deftest oai-tests-block-tags--replace-images ()
+  (should (equal
+           (let* ((f (make-temp-file "test" nil ".JPG")))
+             (with-temp-file f (insert "dummy"))
+             (prog1
+                 (oai-block-tags-replace-images (concat "bla bla [[image:" f "]] vvvv [[image:" f "]] cccc"))
+               (delete-file f)))
+           '[(:type "text" :text "bla bla") (:type "image_url" :image_url (:url "data:image/jpeg;base64,ZHVtbXk=")) (:type "text" :text "vvvv\nSee image above.\ncccc")]))
+  (should (equal (oai-block-tags-replace-images "string") "string")))
+
+(let* ((f (make-temp-file "test" nil ".JPG")))
+           (with-temp-file f (insert "dummy"))
+           (prog1
+               (oai-block-tags-replace-images (concat "[[image:" f "]]"))
+             (delete-file f)))
 ;; -=-= provide
 (provide 'oai-tests-block-tags)
 
