@@ -51,6 +51,16 @@ Optional: ~org-links~, available at MELA and at https://github.com/Anoncheg1/ema
 | oai-async1.el     | (optional) Solve “callback hell” for url.el, used by oai-prompt.el |
 | oai-optional.el   | (optional) Hooks functions for postprocessing                      |
 
+
+** dependencies
+#+begin_src text
+oai.el
+ ├─ oai-block.el
+ ├─ oai-block-tags.el (→ oai-block.el, oai-block-msgs.el)
+ ├─ oai-block-msgs.el (→ oai-block.el)
+ ├─ oai-restapi.el (→ oai-block.el, oai-block-tags.el, oai-async1.el, oai-timers.el)
+ └─ oai-prompt.el (→ oai-block.el, oai-block-msgs.el, oai-block-tags.el, oai-restapi.el, oai-async1.el, oai-timers.el)
+#+end_src
 * Supported services *
 - remote: any server that provides an OpenAI-compliant endpoint (like Together).
 - local: like llama.cpp, and vLLM
@@ -316,6 +326,7 @@ For *keys remapping* we bind keys to Org commands or key if pointer is not in ai
 - Solution for "callback hell"	https://github.com/Anoncheg1/emacs-async1
 - Restore buffer state		https://github.com/Anoncheg1/emacs-unmodified-buffer1
 - outline.el usage		https://github.com/Anoncheg1/emacs-outline-it
+- hiding password in cafe	https://github.com/Anoncheg1/emacs-hidepass
 
 * Donate, sponsor author
 You can sponsor author crypto money directly with crypto currencies:
