@@ -317,7 +317,8 @@ For make *chain of calls* we have ~oai-async1.el~ static framework that simplify
 For *keys remapping* we bind keys to Org commands or key if pointer is not in ai-block, we call original key or command with “hack” functions.
 
 ** How images sent?
-In ~oai-block-tags-replace~ we replace links and tags that detecs as “image” by ~oai-block-tags--filepath-to-language~ with “@image:/path@” strings. And then split message to vector by such strings. All other code aware that :content of “messages” may be a vector.
+We do it in two steps, first we replace image link or tag with ~@image:/path.jpg~ in ~oai-block-tags-replace~ and in ~oai-block-tags--compose-block-for-path-full~ as any other link, then ~oai-restapi--payload~ we encode image to base64 and split text around link and replace string in :context to a vector.
+
 * Other packages
 - Navigation in Dired, Packages, Buffers modes https://github.com/Anoncheg1/firstly-search
 - Search with Chinese	https://github.com/Anoncheg1/pinyin-isearch

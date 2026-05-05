@@ -35,6 +35,7 @@
 ;;; Code:
 ;; -=-= imports
 (require 'ert)
+(require 'oai-block-tags) ; for oai-tests-restapi--replace-images
 (require 'oai-restapi)
 (defvar ert-enabled nil)
 
@@ -240,13 +241,10 @@
 
 ;; -=-= For `oai-restapi--payload'
 (ert-deftest oai-tests-restapi--payload ()
-
   (should (equal (oai-restapi--payload :messages [])
                  '((messages . []) (stream . :json-false))))
   (should (equal (oai-restapi--payload :prompt "asd")
-                 '((prompt . "asd") (stream . :json-false))))
-
-  )
+                 '((prompt . "asd") (stream . :json-false)))))
 ;; -=-= Handling non-unicode characters at input in url-buffer
 ;; (progn
 ;;   (let (
@@ -589,29 +587,78 @@
 ;;       (should (eql 'user (plist-get (aref res 3) :role)))
 ;;       (should (string-match "tt" (plist-get (aref res 3) :content))))))
 
-;; -=-= For fooks: oai-restapi-after-prepare-messages-hook and
-;; (defun oai-tests-restapi--hooks-help-fun (messages)
-;;   (oai-block-msgs--modify-vector-content messages (lambda (x) (concat x "hh1")) 'user))
+;; -=-= For: `oai-restapi--image-file-to-imageurl'
+(ert-deftest oai-tests-restapi--image-file-to-imageurl ()
+  (let ((f (make-temp-file "test" nil ".gif")))
+  (prog1
+      (should-error (oai-restapi--image-file-to-imageurl f) :type 'user-error)
+    (delete-file f)))
 
-(ert-deftest oai-tests-restapi--prepare-messages-hooks ()
-  (with-temp-buffer
-    (org-mode)
-    (let* ((element (progn (insert "#+begin_ai :stream t :sys \"A helpful LLM.\" :stream2 :max-tokens 50 :max-tokens2 :model \"gpt-3.5-turbo\" :model1 :model2 t :model3 :temperature 0.7\nss\n[AI:]vv\n[ME:]tt\n#+end_ai\n")
-                           (goto-char 1)
-                           (oai-block-p)))
-           ;; (oai-restapi-after-prepare-messages-hook (list #'oai-tests-restapi--hooks-help-fun))
-           (oai-block-parse-part-hook (list (lambda (x role) (concat x "hh2"))))
-           (res (oai-block-tags-get-content-ai-messages
-                 element
-                 nil nil nil nil nil ; noweb-control links-only-last not-clear-properties ai-block-markers disable-tags
-                 'chat "sys1" "3")))
-      ;; res))
-      (should (equal res '[(:role system :content "sys1 3")
-                           (:role user :content "sshh2")
-                           (:role assistant :content "vvhh2")
-                           (:role user :content "tthh2")])))))
-      ;; (should (string-equal "sys-all2 sshh2hh1" (plist-get (aref res 1) :content)))))
-      ;; (should (string-equal "sys-all2 tthh2hh1" (plist-get (aref res 3) :content))))))
+  (let* ((f (make-temp-file "test" nil ".JPG")))
+    (with-temp-file f (insert "dummy"))
+    (prog1
+        (should (equal (oai-restapi--image-file-to-imageurl f)
+                       '(:type "image_url" :image_url (:url "data:image/jpeg;base64,ZHVtbXk="))))
+      (delete-file f)))
 
+  (should-error (oai-restapi--image-file-to-imageurl "/tmp/this_file_does_not_exist.jpg")
+                :type 'user-error))
+
+;; -=-= For: `oai-restapi--chunk-around-pattern'
+(ert-deftest oai-tests-restapi--chunk-around-pattern ()
+  (let (res)
+    (setq res
+          (oai-restapi--chunk-around-pattern "\\[\\([^]]+\\)\\]" "[asd]vvvv[aa]bbb"))
+    (should (equal res '(("" . "asd") ("vvvv" . "aa") ("bbb" . ""))))
+    (setq res
+          (oai-restapi--chunk-around-pattern "\\[\\([^]]+\\)\\]" "vvvv[aa]bbb[asv]"))
+    (should (equal res '(("vvvv" . "aa") ("bbb" . "asv"))))
+    (setq res
+          (oai-restapi--chunk-around-pattern "\\[\\([^]]+\\)\\]" "vvvv"))
+    (should (equal res nil))
+    (setq res
+          (oai-restapi--chunk-around-pattern "\\[\\([^]]+\\)\\]" "[aa]"))
+    (should (equal res '(("" . "aa"))))
+    (setq res
+          (oai-restapi--chunk-around-pattern "vvvv" "asdasd"))
+    (should (equal res nil))))
+
+;; -=-= Test: oai-restapi-replace-images
+
+(ert-deftest oai-tests-restapi--replace-images ()
+  (let (res
+        (eres '[(:type "text" :text "bla bla") (:type "image_url" :image_url (:url "data:image/jpeg;base64,ZHVtbXk=")) (:type "text" :text "vvvv\nSee image above.\ncccc")]))
+    (setq res
+          (let* ((f (make-temp-file "test" nil ".JPG")))
+             (with-temp-file f (insert "dummy"))
+             (prog1
+                 (oai-restapi-replace-images (concat "bla bla @image:" f " vvvv @image:" f " cccc"))
+               (delete-file f))))
+  (should (equal res eres))
+  (should (equal (oai-restapi-replace-images "string") "string"))
+
+  (setq res (let* ((f (make-temp-file "test" nil ".JPG")))
+              (with-temp-file f (insert "dummy"))
+              (prog1
+                  (oai-restapi-replace-images (oai-block-tags-replace (concat "bla bla [[" f "]] vvvv [[" f "]] cccc")))
+                (delete-file f))))
+  (should (equal res eres))
+  (setq res (let* ((f (make-temp-file "test" nil ".JPG")))
+              (with-temp-file f (insert "dummy"))
+              (prog1
+                  (oai-restapi-replace-images (oai-block-tags-replace (concat "bla bla @" f " vvvv @" f " cccc")))
+                (delete-file f))))
+  (should (equal res eres))
+
+  (setq res (let* ((f (make-temp-file "test" nil ".JPG")))
+              (with-temp-file f (insert "dummy"))
+              (prog1
+                  (oai-restapi-replace-images (concat "@image:" f))
+                (delete-file f))))
+  (should (equal res '[(:type "image_url" :image_url (:url "data:image/jpeg;base64,ZHVtbXk="))]))
+  ))
+
+
+;; -=-= provide
 (provide 'oai-tests-restapi)
 ;;; oai-tests-restapi.el ends here

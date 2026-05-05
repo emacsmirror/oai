@@ -15,9 +15,9 @@ emacs -Q --batch --no-site-file -l ert.el -l oai-debug.el -l ../emacs-org-links/
       -l oai-block.el -l oai-block-msgs.el -l oai-block-tags.el \
    -l ./tests/oai-tests-block-tags.el -f ert-run-tests-batch-and-exit || exit 1
 # restapi
-emacs -Q --batch --no-site-file -l ert.el -l oai-debug.el -l oai-block.el -l oai-block-msgs.el \
-      -l oai-block-tags.el -l oai-timers.el -l oai-async1.el -l oai-restapi.el \
-    -l ./tests/oai-tests-restapi.el -f ert-run-tests-batch-and-exit || exit 1
+emacs -Q --batch --no-site-file -l ert.el -l oai-debug.el -l oai-block.el -l oai-block-msgs.el -l oai-block-tags.el \
+      -l oai-timers.el -l oai-async1.el -l oai-restapi.el \
+      -l ./tests/oai-tests-restapi.el -f ert-run-tests-batch-and-exit || exit 1
 # optional
 emacs -Q --batch --no-site-file -l ert.el -l oai-debug.el -l oai-optional.el \
     -l ./tests/oai-tests-optional.el -f ert-run-tests-batch-and-exit || exit 1

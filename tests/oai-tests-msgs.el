@@ -44,7 +44,7 @@
 (defvar ert-enabled nil)
 
 ;; -=-= Test: `oai-block-msgs--get-chat-messages-positions', `oai-block-msgs--collect-chat-messages-from-string'
-(ert-deftest oai-tests-block--chat-messages-tests ()
+(ert-deftest oai-tests-block-msgs--chat-messages-tests ()
   (let ((payload "text before
 as
 [AI]: some1
@@ -71,7 +71,7 @@ as
       (should (equal res correct-merged)))))
 
 ;; -=-= Test: `oai-block-msgs--parse-part'
-(ert-deftest oai-tests-block--parse-part ()
+(ert-deftest oai-tests-block-msgs--parse-part ()
   (should (equal (with-temp-buffer
                    (insert "ss")
                    (oai-block-msgs--parse-part 1 (point)))
@@ -100,7 +100,7 @@ as
 
 
 ;; -=-= Test: `oai-block-msgs--merge-by-role'
-(ert-deftest oai-tests-block--oai-block--merge-consecutive-messages-by-role1()
+(ert-deftest oai-tests-block-msgs--oai-block--merge-consecutive-messages-by-role1()
   (should (equal (let ((parts
          (list
           (list :role 'system :content nil )
@@ -113,7 +113,7 @@ as
     (oai-block-msgs--merge-by-role parts "::" ))
                  '((:role user :content "Hi.::How are you?") (:role assistant :content "I'm fine.") (:role user :content "Hi.")))))
 
-(ert-deftest oai-tests-block--oai-block--merge-consecutive-messages-by-role2()
+(ert-deftest oai-tests-block-msgs--oai-block--merge-consecutive-messages-by-role2()
   (should (equal (let ((parts
          (list
           (list :role 'system :content "Hi." )
@@ -126,7 +126,7 @@ as
                  '((:role system :content "Hi.") (:role user :content "How are you?") (:role assistant :content "I'm fine.") (:role user :content "Hi.")))))
 
 ;; -=-= Test: `oai-block-msgs--collect-chat-messages-from-string'
-(ert-deftest oai-tests-block--collect-chat-messages()
+(ert-deftest oai-tests-block-msgs--collect-chat-messages()
   (should (equal (let ((parts
                         (list
                          (list :role 'user :content "Hi." )
@@ -141,7 +141,7 @@ as
                    (:role user :content "Hi.")))))
 
 ;; -=-= Test: `oai-block-msgs--collect-chat-messages-from-string'
-(ert-deftest oai-tests-block--collect-chat-messages-from-string ()
+(ert-deftest oai-tests-block-msgs--collect-chat-messages-from-string ()
   ;; deal with unspecified prefix
   ;; (should
   ;;  (equal
@@ -206,7 +206,7 @@ as
 
 
 ;; -=-= Test: `oai-block-msgs--stringify-chat-messages'
-(ert-deftest oai-tests-block--stringify-chat-messages1()
+(ert-deftest oai-tests-block-msgs--stringify-chat-messages1()
   (let ((oai-block-roles-prefixes '(("SYS" . system)
                                    ("ME" . user)
                                    ("AI" . assistant)
@@ -229,7 +229,7 @@ as
 [ME]: Hi."))))
 
 
-(ert-deftest oai-tests-block--stringify-chat-messages2 ()
+(ert-deftest oai-tests-block-msgs--stringify-chat-messages2 ()
   (let ((oai-block-roles-prefixes '(("SYS1" . system)
                            ("ME2" . user)
                            ("AI3" . assistant)))
@@ -286,7 +286,7 @@ as
 
 
 ;; -=-= For: `oai-block-msgs--modify-vector-content'
-(ert-deftest oai-tests-restapi--modify-vector-content1 ()
+(ert-deftest oai-tests-block-msgs--modify-vector-content1 ()
   (should
    (equal (oai-block-msgs--modify-vector-content
            '[(:role system :content "foo")
@@ -302,7 +302,7 @@ as
             (:role user :content "How to make coffe2? w11")
             (:role system :content "other")])))
 
-(ert-deftest oai-tests-restapi--modify-vector-content2 ()
+(ert-deftest oai-tests-block-msgs--modify-vector-content2 ()
   (should
    (equal (oai-block-msgs--modify-vector-content
            '[(:role system :content "foo")
@@ -317,7 +317,7 @@ as
             (:role user :content "How to make coffe2? w11")
             (:role system :content "other w11")])))
 
-(ert-deftest oai-tests-restapi--modify-vector-content3 ()
+(ert-deftest oai-tests-block-msgs--modify-vector-content3 ()
   (should (equal
            (oai-block-msgs--modify-vector-content
             '[(:role system :content "Think.") (:role user :content ((:type "text" :text "What is on image?") (:type "image_url" :image_url (:url "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABQY"))))]

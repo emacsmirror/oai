@@ -389,46 +389,47 @@ REST optional arguments are arguments that will be passed to call of
  applicant if it a function.
 Return modified VEC."
   (oai--debug "oai-block-msgs--modify-vector-content N1 %s %s %s" role vec applicant)
-  ;; (unless (vectorp vec)
-  ;;   (user-error "Not a vector"))
-  (let ((i (1- (length vec)))
-        ;; (vec (copy-sequence vec)) ; copy of vector with shared messages
-        mes
-        content
-        content-old
-        idxs)
-    ;; loop over messages in vec
-    (while (>= i 0)
-      (setq mes (aref vec i)) ; from 0 to len-1
+  (if (eq (length vec) 0)
+      vec
+    ;; else
+    (let ((i (1- (length vec)))
+          ;; (vec (copy-sequence vec)) ; copy of vector with shared messages
+          mes
+          content
+          content-old
+          idxs)
+      ;; loop over messages in vec
+      (while (>= i 0)
+        (setq mes (aref vec i)) ; from 0 to len-1
 
-      ;; replace content for role
-      (when (or (and role
-                     (eql role (plist-get mes :role)))
-                (not role))
-        (setq content-old (plist-get mes :content))
-        (setq content (if (functionp applicant)
-                          (if rest
-                              (apply #'funcall applicant content-old rest)
-                            ;; else
-                            (funcall applicant content-old))
-                        ;; else
-                        applicant))
-        (unless (equal content-old content) ; was modified? recursive equal on strings here.
-          ;; (aset vec i
-          (plist-put mes :content content)
-          (push i idxs)))
-      (setq i (1- i)))
-    (oai--debug "oai-block-msgs--modify-vector-content N2" idxs vec)
-    (if (and split-flag idxs)
-        (vconcat
-         (oai-block-msgs--merge-by-role
-          (oai-block-msgs--vector-split-by-chat-prefix vec idxs)))
-      ;; else
-      vec)))
+        ;; replace content for role
+        (when (or (and role
+                       (eql role (plist-get mes :role)))
+                  (not role))
+          (setq content-old (plist-get mes :content))
+          (setq content (if (functionp applicant)
+                            (if rest
+                                (apply #'funcall applicant content-old rest)
+                              ;; else
+                              (funcall applicant content-old))
+                          ;; else
+                          applicant))
+          (unless (equal content-old content) ; was modified? recursive equal on strings here.
+            ;; (aset vec i
+            (plist-put mes :content content)
+            (push i idxs)))
+        (setq i (1- i)))
+      (oai--debug "oai-block-msgs--modify-vector-content N2" idxs vec)
+      (if (and split-flag idxs)
+          (vconcat
+           (oai-block-msgs--merge-by-role
+            (oai-block-msgs--vector-split-by-chat-prefix vec idxs)))
+        ;; else
+        vec))))
 
 
 (defun oai-block-msgs--modify-vector-last-user-content (vec applicant &optional split-flag &rest rest)
-  "Replacing last \='user :content with APPLICANT in VEC.
+  "Copy VEC with replacing last \='user :content with APPLICANT in VEC.
 Used in `oai-restapi-request-prepare' to send history of conversation.
 APPLICANT is either (string or function of old content), like
 `oai-block-tags-replace'.
@@ -436,21 +437,25 @@ If SPLIT-FLAG is non-nil, split content of replaceed messages if it have
  prefixes.  After splitting messages merged by role if there is a
  sequence of them with same role.
 Uses `oai-block-msgs--find-last-user-index`.
+Optional argument REST is additional arguments for APPLICANT function.
 Return new vector based on VEC."
   ;; (unless (vectorp vec)
   ;;   (user-error "Not a vector"))
   (oai--debug "oai-block-msgs--modify-vector-last-user-content %s %s" vec applicant)
-  (let ((idx (oai-block-msgs--find-last-user-index vec)))
-    (or
+  (if (eq (length vec) 0)
+      vec
+    ;; else
+    (let ((idx (oai-block-msgs--find-last-user-index vec)))
+      (or
        (let* ((elt (aref vec idx))
               (content-old (plist-get elt :content))
               (content-new (if (functionp applicant)
-                           (if rest
-                               (apply #'funcall applicant content-old rest)
+                               (if rest
+                                   (apply #'funcall applicant content-old rest)
+                                 ;; else
+                                 (funcall applicant content-old))
                              ;; else
-                             (funcall applicant content-old))
-                         ;; else
-                         applicant)))
+                             applicant)))
          (unless (equal content-old content-new) ; was modified? recursive equal on strings here.
            (let ((newvec (copy-sequence vec)))
              (aset newvec idx
@@ -461,7 +466,7 @@ Return new vector based on VEC."
                    (oai-block-msgs--vector-split-by-chat-prefix newvec (list idx))))
                ;; else
                newvec)))) ; return
-       vec)))
+       vec))))
 
 
 ;;;; provide

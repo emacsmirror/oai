@@ -79,7 +79,8 @@
 (require 'json) ; json-read, json-read-from-string, json-encode
 (require 'oai-debug)
 (require 'oai-block)
-(require 'oai-block-tags)
+(require 'oai-block-msgs) ; for `oai-block-msgs--modify-vector-last-user-content'
+;; (require 'oai-block-tags)
 (require 'oai-timers)
 (require 'oai-async1) ; for `oai-async1-plist-get'
 
@@ -1097,6 +1098,82 @@ Should be executed in url-buffer only."
       ret)))
 
 
+;; -=-= @image:/path.jpg to base64 payload
+
+(defun oai-restapi--chunk-around-pattern (pattern str)
+  "Split STR into pairs (outside . inside) using regex PATTERN as delimiter.
+PATTERN should have match group 1.
+Inside is match group 1 by applying PATTERN to
+ string, outside is text before found patter in STR.
+Return list of cons or nil."
+  (let ((start 0)
+        chunks)
+    (while (string-match pattern str start)
+      (let ((outside (substring str start (match-beginning 0)))
+            (inside (match-string 1 str)))
+        (push (cons outside inside) chunks))
+      (setq start (match-end 0)))
+    ;; Remaining tail after last match, with inside ""
+    (when (< start (length str))
+      (push (cons (substring str start) "") chunks))
+    (unless (= start 0) ; not found
+      (nreverse chunks))))
+
+(defun oai-restapi--image-file-to-imageurl (filepath)
+  "Encode FILEPATH to base64 and return OpenAI-complient :context.
+Return image_url part of message for supported image FILEPATH, or nil.
+\(:type \"image_url\" :image_url (:url data-URL))."
+  (unless (and (file-exists-p filepath)
+               (file-readable-p filepath))
+    (user-error "Building image_url, Image file not exist: %s.?" filepath))
+  (let* ((extension (downcase (or (file-name-extension filepath) "")))
+         (mimetype (pcase extension
+                     ((or "jpg" "jpeg") "image/jpeg")
+                     ("png" "image/png")
+                     (_ nil))))
+    (unless mimetype
+      (user-error "Building image_url, Unsupported extension for image: %s.?" extension))
+    (with-temp-buffer
+      (insert-file-contents-literally filepath)
+      (list :type "image_url"
+            :image_url (list :url
+                             (format "data:%s;base64,%s"
+                                     mimetype
+                                     (base64-encode-string (buffer-string) t)))))))
+
+(defun oai-restapi-replace-images (string)
+  "Replace [[image:/path]] in STRING to pairs of descrption-image.
+If image repeat we replace it with text \"\nSee image above.\n\".
+Bound with `oai-block-tags--compose-block-for-path-full' by hardcoded
+ regex.
+Return string or vector."
+  (oai--debug "oai-restapi-replace-images N0 %s" string)
+  (let (ret paths; lists
+        desc
+        path
+        (items (oai-restapi--chunk-around-pattern "@image:\\([^ \t\n\r]+\\)" string)))
+    (if (not items)
+        string
+      ;; else
+      (dolist (item items)
+        (setq desc (string-trim (car item)))
+        (setq path (cdr item))
+        ;; push desc and image to flat list
+        (unless (string-empty-p desc)
+          ;; add :text to preview :text?
+          (if (equal (plist-get (car ret) :type) "text")
+              (plist-put (car ret) :text (concat (plist-get (car ret) :text) "\nSee image above.\n" desc))
+                     ;; (setf (cadr (car ret)) "changed") ; mutate :text
+            ;; else
+          (push (list :type "text" :text desc) ret)))
+        (unless (or (string-empty-p path)
+                    (member path paths))
+          (push path paths)
+          (push (oai-restapi--image-file-to-imageurl path) ret)))
+      (vconcat (reverse ret) ))))
+
+;; -=-= payload
+
 (cl-defun oai-restapi--payload (&optional &key service model prompt messages max-tokens temperature top-p frequency-penalty presence-penalty stream)
   "Create the payload for the OpenAI API.
 SERVICE used to get default model.
@@ -1117,13 +1194,19 @@ Return list of cons with messages as vector and with stream bool."
         max-completion-tokens
         (messages (when messages (vconcat messages)))) ; enshure messages is vector
 
+    ;; enshure that :content is vector or string
     (when messages
       (let (msg content)
-       (dotimes (idx (length messages))
+       (dotimes (idx (length messages)) ; loop
          (setq msg (aref messages idx))
          (setq content (plist-get msg :content))
          (when (listp content)
-           (setf (plist-get (aref messages idx) :content) (vconcat content)))))) ; plist-get return generalized variable
+           (plist-put (aref messages idx) :content (vconcat content))))))
+
+    ;; replace @image/path.jpg to base64
+    (setq messages (oai-block-msgs--modify-vector-last-user-content messages
+                                                                    #'oai-restapi-replace-images
+                                                                    nil))
 
     (when (eq service 'anthropic)
       (when (string-equal (plist-get (aref messages 0) :role) "system")

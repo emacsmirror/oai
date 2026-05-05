@@ -154,33 +154,18 @@
 ;; - make `oai-expand-block' executed with `org-babel-expand-src-block'.
 ;; - provide place or hook to add custom expansion of link to one line for user defined mode
 ;; - support vars as tags    https://orgmode.org/manual/Environment-of-a-Code-Block.html
-;; - write test for `oai-block-tags-get-content' and `oai-block-tags--get-content-at-point-org'
-;;   and noweb parameter usage
-;; - add advanced forward section that check what type of region is
-;;   active and do appropriate forward with preserving region
 ;; - noweb evaluation with support of variables with some text. like <<call("as")>>
-;; - rebind keys to C-x C-a
 ;; - function to replace "^[\s+]- **word1 [word2]:**" to "^^[\s+]- word1 [word2] :: " and highligh it.
-;; - fix highlight to highlight when there is only "#+end_ai"
-;; - create function that insert :max-token and any for given int or value, like
-;;  `org-babel-insert-header-arg'
-;; - remove bound to Org mode from oai-block-tags for more support for
-;;  .ai file extension without ai block
 ;; - pre-call: and post-call: for preparation and postprocessing and
 ;;  pre-/post-service and model. or guide for hooks
 ;; - implement my/org-execute-in-source-block for markdown that use
 ;;  `org-src--edit-element', for that `org-babel-do-in-edit-buffer'
 ;;  should be rewrited, in which org-edit-src-code should be executed
 ;;  with content, not current block
-;; - unbind dependency to each other of `oai-restapi' and `oai-block-tags'
-;;   create oai-block-chat and collect all functions that works with chat prefixes.
-;;   includes: oai-block -> oai-block-chat -> oai-restapi
 ;; - add optional function to put text in markdown language block to the
 ;;  begining of the line by removing indentation
 ;; - make key to remove all messages and left only the last
 ;; - support "C-c '" (call-interactively 'org-edit-special)
-;; - model, service switching based on messages.
-;; - image links image_url
 
 ;;; Code:
 
