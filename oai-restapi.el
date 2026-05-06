@@ -1101,76 +1101,74 @@ Should be executed in url-buffer only."
 ;; -=-= @image:/path.jpg to base64 payload
 
 (defun oai-restapi--chunk-around-pattern (pattern str)
-  "Split STR into pairs (outside . inside) using regex PATTERN as delimiter.
-PATTERN should have match group 1.
-Inside is match group 1 by applying PATTERN to
- string, outside is text before found patter in STR.
+  "Split STR into pairs (outside . match) using regex PATTERN as delimiter.
+PATTERN should may have match groups 1,2,3 or less.
+\"match\" is a list of substrings groups 1,2,3 matched, may be nil, but if
+ one of group was found it will have all 1,2,3 nils.
+\"outside\" is text before found patter in STR or empty string.
+Dont throw error if pattern was matched but not fully, should be checked
+ by caller.
 Return list of cons or nil."
   (let ((start 0)
         chunks)
     (while (string-match pattern str start)
-      (let ((outside (substring str start (match-beginning 0)))
-            (inside (match-string 1 str)))
-        (push (cons outside inside) chunks))
+      (push (cons (substring str start (match-beginning 0))
+                  (list (match-string 1 str) (match-string 2 str) (match-string 3 str)))
+            chunks)
+      ;; all groups should exist, disabled: block patter to 123 only
+      ;; (unless (and (match-string 1 str) (match-string 2 str) (match-string 3 str))
+      ;;   (user-error "One of group 123 is not found for pattern: \"%s\" in string: \"%s\"" pattern str))
       (setq start (match-end 0)))
     ;; Remaining tail after last match, with inside ""
     (when (< start (length str))
-      (push (cons (substring str start) "") chunks))
+      (push (cons (substring str start) nil) chunks))
     (unless (= start 0) ; not found
       (nreverse chunks))))
 
-(defun oai-restapi--image-file-to-imageurl (filepath)
-  "Encode FILEPATH to base64 and return OpenAI-complient :context.
-Return image_url part of message for supported image FILEPATH, or nil.
-\(:type \"image_url\" :image_url (:url data-URL))."
-  (unless (and (file-exists-p filepath)
-               (file-readable-p filepath))
-    (user-error "Building image_url, Image file not exist: %s.?" filepath))
-  (let* ((extension (downcase (or (file-name-extension filepath) "")))
-         (mimetype (pcase extension
-                     ((or "jpg" "jpeg") "image/jpeg")
-                     ("png" "image/png")
-                     (_ nil))))
-    (unless mimetype
-      (user-error "Building image_url, Unsupported extension for image: %s.?" extension))
-    (with-temp-buffer
-      (insert-file-contents-literally filepath)
-      (list :type "image_url"
-            :image_url (list :url
-                             (format "data:%s;base64,%s"
-                                     mimetype
-                                     (base64-encode-string (buffer-string) t)))))))
+(defconst oai-restapi--multimodal-internal-link-re "@\\(image\\|audio\\)-\\([^:]+\\):\\([^ \t\n\r]+\\)"
+  "Bound with hardcoded links in `oai-block-tags--compose-block-for-path-full'.")
 
-(defun oai-restapi-replace-images (string)
-  "Replace [[image:/path]] in STRING to pairs of descrption-image.
-If image repeat we replace it with text \"\nSee image above.\n\".
-Bound with `oai-block-tags--compose-block-for-path-full' by hardcoded
- regex.
-Return string or vector."
-  (oai--debug "oai-restapi-replace-images N0 %s" string)
-  (let (ret paths; lists
-        desc
-        path
-        (items (oai-restapi--chunk-around-pattern "@image:\\([^ \t\n\r]+\\)" string)))
-    (if (not items)
+(defun oai-restapi--replace-multimodal (string)
+  "Replace @image/audo-format:/path in STRING with multimodal blocks."
+  (let* ((items (oai-restapi--chunk-around-pattern oai-restapi--multimodal-internal-link-re string))
+         ret paths desc match)
+    (if (not items) ; links was not found
         string
-      ;; else
       (dolist (item items)
         (setq desc (string-trim (car item)))
-        (setq path (cdr item))
-        ;; push desc and image to flat list
+        (setq match (cdr item)) ;; (class format path)
+
+        ;; 1. Merge or Push Text Description
         (unless (string-empty-p desc)
-          ;; add :text to preview :text?
+          ;; if previous message was text, image/audio was repeated and skipped
           (if (equal (plist-get (car ret) :type) "text")
-              (plist-put (car ret) :text (concat (plist-get (car ret) :text) "\nSee image above.\n" desc))
-                     ;; (setf (cadr (car ret)) "changed") ; mutate :text
-            ;; else
-          (push (list :type "text" :text desc) ret)))
-        (unless (or (string-empty-p path)
-                    (member path paths))
-          (push path paths)
-          (push (oai-restapi--image-file-to-imageurl path) ret)))
-      (vconcat (reverse ret) ))))
+              (plist-put (car ret) :text (concat (plist-get (car ret) :text) "\nSee media above.\n" desc))
+            (push (list :type "text" :text desc) ret)))
+
+        ;; 2. Handle Media Path
+        (when match
+          (let ((class  (nth 0 match)) ; image
+                (format (nth 1 match)) ; jpeg
+                (path   (nth 2 match))) ; /a.jpg
+            (oai--debug "oai-restapi--replace-multimodal %s %s %s" class format path)
+            (unless (and class format path)
+                (user-error "One of group 123 is not found for pattern: \"%s\" in string: \"%s\"" oai-restapi--multimodal-internal-link-re string))
+            (unless (or (string-empty-p path) (member path paths))
+              (push path paths)
+              (with-temp-buffer
+                (insert-file-contents-literally path)
+                (push (if (string= class "image")
+                          (list :type "image_url"
+                                :image_url (list :url (format "data:image/%s;base64,%s"
+                                                              format
+                                                              (base64-encode-string (buffer-string) t))))
+                        ;; (oai-restapi--image-file-to-imageurl path)
+                        ;; Else: Audio structure
+                        (list :type "input_audio"
+                              :input_audio (list :data (base64-encode-string (buffer-string) t)
+                                                 :format format)))
+                      ret))))))
+      (vconcat (reverse ret)))))
 
 ;; -=-= payload
 
@@ -1205,7 +1203,7 @@ Return list of cons with messages as vector and with stream bool."
 
     ;; replace @image/path.jpg to base64
     (setq messages (oai-block-msgs--modify-vector-last-user-content messages
-                                                                    #'oai-restapi-replace-images
+                                                                    #'oai-restapi--replace-multimodal
                                                                     nil))
 
     (when (eq service 'anthropic)

@@ -325,10 +325,55 @@ Use two methods by extension and by reading file."
           (goto-char (point-min))
           (search-forward "\0" nil t)))))
 
+(defvar oai-block-tags--multimodal-pairs '(("jpg"  . (image . jpeg)) ("jpeg" . (image . jpeg))
+                                           ("png"  . (image . png))  ("webp" . (image . webp))
+                                           ("gif"  . (image . gif))  ("bmp"  . (image . bmp))
+                                           ("tif"  . (image . tiff)) ("tiff" . (image . tiff))
+                                           ("wav"  . (audio . wav))  ("mp3"  . (audio . mp3))
+                                           ("flac" . (audio . flac)) ("ogg"  . (audio . ogg))
+                                           ("m4a"  . (audio . m4a)))
+  "Map extensions to (class . type).")
+
+(defun oai-block-tags--detect-multimodal-pair (file)
+  "Return a pair (CLASS . TYPE) for FILE, or nil if unknown.
+CLASS is \='image or \='audio.  TYPE is the specific format symbol."
+  (let* ((ext (file-name-extension file))
+         (from-ext (cdr (assoc-string ext oai-block-tags--multimodal-pairs t))))
+    (or from-ext
+        (when (and (file-readable-p file) (not (file-directory-p file)))
+          (with-temp-buffer
+            (set-buffer-multibyte nil)
+            (insert-file-contents-literally file nil 0 12)
+            (let ((bin (buffer-string)))
+              (cond
+               ;; --- Images ---
+               ((string-prefix-p "\x89PNG\r\n\x1a\n" bin) '(image . png))
+               ((string-prefix-p "\xff\xd8" bin)          '(image . jpeg))
+               ((string-prefix-p "GIF8" bin)              '(image . gif))
+               ((string-prefix-p "BM" bin)                '(image . bmp))
+               ((or (string-prefix-p "II\x2a\x00" bin)
+                    (string-prefix-p "MM\x00\x2a" bin))   '(image . tiff))
+               ;; --- Audio ---
+               ((or (string-prefix-p "ID3" bin)
+                    (string-prefix-p "\xff\xfb" bin))     '(audio . mp3))
+               ((string-prefix-p "fLaC" bin)              '(audio . flac))
+               ((string-prefix-p "OggS" bin)              '(audio . ogg))
+               ;; --- Containers ---
+               ((string-prefix-p "RIFF" bin)
+                (let ((type (substring bin 8 (min (length bin) 12))))
+                  (cond ((string= type "WEBP") '(image . webp))
+                        ((string= type "WAVE") '(audio . wav)))))
+
+               ((and (>= (length bin) 8)
+                     (string-match-p "\\`ftyp" (substring bin 4))
+                     (member (substring bin 8 (min (length bin) 12))
+                             '("M4A " "mp42" "isom")))
+                '(audio . m4a)))))))))
+
 (defun oai-block-tags--compose-block-for-path-full (path-string)
   "Return file or directory in prepared mardown block.
-If PATH-STRING is image, replace link to @@image:/path@@.
-If PATH-STRING is binary not image, signal error.
+If PATH-STRING is image or audio, replace link to @image-jpeg:/path.
+If PATH-STRING is binary not image nor audio, signal error.
 PATH-STRING may be path to file or a directory.
 Bound with `oai-block-tags-replace-images' by hardcoded regex.
 Called in two placed: for links
@@ -336,21 +381,21 @@ Called in two placed: for links
  `oai-block-tags-replace'.
 Return string or nil or raise user-error."
   (oai--debug "oai-block-tags--compose-block-for-path-full %s" path-string)
-  ;; (let ((lang (oai-block-tags--filepath-to-language path-string)))
-  ;;   (if (member-ignore-case lang '("image" "elisp-byte-code" "auto")
-  (if (string-equal (oai-block-tags--filepath-to-language path-string)
-                    "image")
-      (concat "@image:" path-string)
-    ;; else
-    (when (and (not (file-directory-p path-string))
-               (oai-block-tags--file-binary-p path-string))
-      (user-error "File link is binary and not supported (not image) for text request.?"))
+  (cond
+   ;; audo or image?
+   ((when-let (res (oai-block-tags--detect-multimodal-pair path-string))
+     (format "@%s-%s:%s" (car res) (cdr res) path-string))) ; image or audio
+   ;; is binary?
+   ((and (not (file-directory-p path-string))
+         (oai-block-tags--file-binary-p path-string))
+    (user-error "File link is binary and not supported (not image and audio) for text request"))
+   (t
     (oai-block-tags--compose-block-for-path path-string
                                             (if (file-directory-p path-string)
                                                 (oai-block-tags--get-directory-content path-string)
                                               ;; else
                                               ;; raise user-error if something
-                                              (org-file-contents path-string))))) ; oai-block-tags--read-file-to-string-safe
+                                              (org-file-contents path-string)))))) ; oai-block-tags--read-file-to-string-safe
 
 ;; -=-= help functions:  block-at-point, contents-area, get-content
 
@@ -454,13 +499,6 @@ Return vector with messages for ai block, or string if REQ-TYPE is
                                                                    ai-block-markers))
                            ;; else
                            messages))
-               ;; 4) replace images - last only
-               ;; (messages (if (not disable-tags)
-               ;;               (oai-block-msgs--modify-vector-last-user-content messages
-               ;;                                                                #'oai-block-tags-replace-images
-               ;;                                                                nil)
-               ;;             ;; else
-               ;;             messages))
                (_ (oai--debug "oai-block-tags-get-content-ai-messages N2_2" messages))
                ;; 5) clear properties (for sending to LLM)
                (messages (if not-clear-properties

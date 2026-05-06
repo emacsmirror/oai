@@ -587,76 +587,83 @@
 ;;       (should (eql 'user (plist-get (aref res 3) :role)))
 ;;       (should (string-match "tt" (plist-get (aref res 3) :content))))))
 
-;; -=-= For: `oai-restapi--image-file-to-imageurl'
-(ert-deftest oai-tests-restapi--image-file-to-imageurl ()
-  (let ((f (make-temp-file "test" nil ".gif")))
-  (prog1
-      (should-error (oai-restapi--image-file-to-imageurl f) :type 'user-error)
-    (delete-file f)))
-
-  (let* ((f (make-temp-file "test" nil ".JPG")))
-    (with-temp-file f (insert "dummy"))
-    (prog1
-        (should (equal (oai-restapi--image-file-to-imageurl f)
-                       '(:type "image_url" :image_url (:url "data:image/jpeg;base64,ZHVtbXk="))))
-      (delete-file f)))
-
-  (should-error (oai-restapi--image-file-to-imageurl "/tmp/this_file_does_not_exist.jpg")
-                :type 'user-error))
-
 ;; -=-= For: `oai-restapi--chunk-around-pattern'
 (ert-deftest oai-tests-restapi--chunk-around-pattern ()
   (let (res)
     (setq res
           (oai-restapi--chunk-around-pattern "\\[\\([^]]+\\)\\]" "[asd]vvvv[aa]bbb"))
-    (should (equal res '(("" . "asd") ("vvvv" . "aa") ("bbb" . ""))))
+    (should (equal res '(("" "asd" nil nil) ("vvvv" "aa" nil nil) ("bbb"))))
     (setq res
-          (oai-restapi--chunk-around-pattern "\\[\\([^]]+\\)\\]" "vvvv[aa]bbb[asv]"))
-    (should (equal res '(("vvvv" . "aa") ("bbb" . "asv"))))
+          (oai-restapi--chunk-around-pattern "\\[\\(image\\|audio\\)-\\([^:]+\\):\\([^]\t\n\r]+\\)]" "vvvv[image-png:sa]bbb[audio-mp3:vv]"))
+    (should (equal res '(("vvvv" "image" "png" "sa") ("bbb" "audio" "mp3" "vv"))))
     (setq res
           (oai-restapi--chunk-around-pattern "\\[\\([^]]+\\)\\]" "vvvv"))
     (should (equal res nil))
+
+    ;; (should-error (oai-restapi--chunk-around-pattern "\\[\\([^]]+\\)\\]" "[aa]") :type 'user-error)
+
     (setq res
           (oai-restapi--chunk-around-pattern "\\[\\([^]]+\\)\\]" "[aa]"))
-    (should (equal res '(("" . "aa"))))
+    (should (equal res '(("" "aa" nil nil))))
+
+    (setq res
+          (oai-restapi--chunk-around-pattern "\\[\\(image\\|audio\\)-\\([^:]+\\):\\([^]\t\n\r]+\\)]" "vvvv[image-png:sa]bbb"))
+    (should (equal res '(("vvvv" "image" "png" "sa") ("bbb"))))
+
+    (setq res
+          (oai-restapi--chunk-around-pattern "\\[\\(image\\|audio\\)-\\([^:]+\\):\\([^]\t\n\r]+\\)]" "[image-png:sa]bbb[audio-mp3:vv]"))
+    (should (equal res '(("" "image" "png" "sa") ("bbb" "audio" "mp3" "vv"))))
+
     (setq res
           (oai-restapi--chunk-around-pattern "vvvv" "asdasd"))
     (should (equal res nil))))
 
-;; -=-= Test: oai-restapi-replace-images
-
-(ert-deftest oai-tests-restapi--replace-images ()
+;; -=-= For: `oai-restapi--replace-multimodal'
+(ert-deftest oai-tests-restapi--replace-multimodal ()
   (let (res
-        (eres '[(:type "text" :text "bla bla") (:type "image_url" :image_url (:url "data:image/jpeg;base64,ZHVtbXk=")) (:type "text" :text "vvvv\nSee image above.\ncccc")]))
+        (eres '[(:type "text" :text "bla bla") (:type "image_url" :image_url (:url "data:image/jpeg;base64,ZHVtbXk=")) (:type "text" :text "vvvv\nSee media above.\ncccc")]))
+    ;; 1
     (setq res
           (let* ((f (make-temp-file "test" nil ".JPG")))
+            ;; (oai-restapi--chunk-around-pattern "@\\(image\\|audio\\)-\\([^:]+\\):\\([^ \t\n\r]+\\)"
+            ;;                            (concat "bla bla @image-jpeg:" f " vvvv @image-jpeg:" f " cccc")))))
              (with-temp-file f (insert "dummy"))
              (prog1
-                 (oai-restapi-replace-images (concat "bla bla @image:" f " vvvv @image:" f " cccc"))
+                 (oai-restapi--replace-multimodal (concat "bla bla @image-jpeg:" f " vvvv @image-jpeg:" f " cccc"))
                (delete-file f))))
   (should (equal res eres))
-  (should (equal (oai-restapi-replace-images "string") "string"))
-
+  ;;2
+  (setq res
+          (let* ((f (make-temp-file "test" nil ".JPG")))
+            (with-temp-file f (insert "dummy"))
+            (prog1
+                (oai-restapi--replace-multimodal (concat "bla bla @audio-mp3:" f " vvvv @audio-mp3:" f " cccc"))
+              (delete-file f))))
+  (should (equal res [(:type "text" :text "bla bla") (:type "input_audio" :input_audio (:data "ZHVtbXk=" :format "mp3")) (:type "text" :text "vvvv\nSee media above.\ncccc")]))
+  ;;3
+  (should (equal (oai-restapi--replace-multimodal "string") "string"))
+  ;;4
   (setq res (let* ((f (make-temp-file "test" nil ".JPG")))
               (with-temp-file f (insert "dummy"))
               (prog1
-                  (oai-restapi-replace-images (oai-block-tags-replace (concat "bla bla [[" f "]] vvvv [[" f "]] cccc")))
+                  (oai-restapi--replace-multimodal (oai-block-tags-replace (concat "bla bla [[" f "]] vvvv [[" f "]] cccc")))
                 (delete-file f))))
   (should (equal res eres))
+  ;;5
   (setq res (let* ((f (make-temp-file "test" nil ".JPG")))
               (with-temp-file f (insert "dummy"))
               (prog1
-                  (oai-restapi-replace-images (oai-block-tags-replace (concat "bla bla @" f " vvvv @" f " cccc")))
+                  (oai-restapi--replace-multimodal (oai-block-tags-replace (concat "bla bla @" f " vvvv @" f)))
                 (delete-file f))))
-  (should (equal res eres))
+  (should (equal res '[(:type "text" :text "bla bla") (:type "image_url" :image_url (:url "data:image/jpeg;base64,ZHVtbXk=")) (:type "text" :text "vvvv")]))
+  ;;6
+  (setq res (let* ((f (make-temp-file "test" nil ".mp3")))
+              (with-temp-file f (insert "dummy"))
+              (prog1
+                  (oai-restapi--replace-multimodal (oai-block-tags-replace (concat "[[file:" f "]]")))
+                (delete-file f))))
+  (should (equal res '[(:type "input_audio" :input_audio (:data "ZHVtbXk=" :format "mp3"))]))))
 
-  (setq res (let* ((f (make-temp-file "test" nil ".JPG")))
-              (with-temp-file f (insert "dummy"))
-              (prog1
-                  (oai-restapi-replace-images (concat "@image:" f))
-                (delete-file f))))
-  (should (equal res '[(:type "image_url" :image_url (:url "data:image/jpeg;base64,ZHVtbXk="))]))
-  ))
 
 
 ;; -=-= provide

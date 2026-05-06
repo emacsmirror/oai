@@ -531,7 +531,7 @@ oai-parse-org-header -> oai-request-prepare -> oai-restapi-request
 - -> oai-restapi--payload - accept messages in any form ( with images)
 
 Idiea: allow :screen, provide list binary files at step of parsing headers somehwere, provide hooks.
-** Image link: json
+** Image link: json [2026-04-30 Thu]
 type: Input_image:
 #+begin_src python :results none :exports code :eval no
 # Path to your image
@@ -619,7 +619,39 @@ Normal content consisten of one string
   ],
 #+end_src
 
-
+** audio
+#+begin_src json
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "ggml-org/Voxtral-Mini-3B-2507-GGUF",
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "text",
+            "text": "Transcribe this audio."
+          },
+          {
+            "type": "input_audio",
+            "input_audio": {
+              "data": "AUDIO_BASE64_STRING",
+              "format": "wav"
+            }
+          }
+        ]
+      }
+    ],
+    "max_tokens": 1024
+  }'
+#+end_src
+Key JSON Structure Details
+- role: Set to "user" for the input.
+- content: An array containing both text and audio objects.
+- type: "input_audio": Specifies the modality.
+- data: The base64-encoded audio content.
+- format: The audio format (e.g., "wav", "mp3").
 * Tests: Not covered staff
 - font-locks
 - fill paragraph

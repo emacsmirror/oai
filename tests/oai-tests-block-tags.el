@@ -464,6 +464,7 @@ run BODY with access to TEMP-DIR and TEMP-FILES, then clean up."
   (should-error (oai-block-tags-replace "@/aasdasdasd")
                 :type 'user-error) ; not exist
   (with-temp-files '("file1.elc" "file2.el")
+    ;; (oai-block-tags-replace (concat "@" (car temp-files))))
    (should-error (oai-block-tags-replace (concat "@" (car temp-files)))
                  :type 'user-error) ; empty
    (should-error (oai-block-tags-replace (concat "file:" (car temp-files)))
