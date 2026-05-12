@@ -846,8 +846,8 @@ Use argument SERVICE to find endpoint, MODEL as parameter to request."
           (remove-hook 'after-change-functions #'oai-restapi--url-request-on-change-function t)))
       url-request-buffer)))
 
-;; -=-= oai-restapi-request-llm
-(cl-defun oai-restapi-request-llm (service model callback &optional &key prompt messages max-tokens temperature top-p frequency-penalty presence-penalty)
+;; -=-= oai-restapi--url-request-slim
+(cl-defun oai-restapi--url-request-slim (service model callback &optional &key prompt messages max-tokens temperature top-p frequency-penalty presence-penalty)
   "Simplified version of `oai-restapi--url-request' without stream support.
 Used for building agents or chain of requests.
 Call CALLBACK called from callback of `url-retrieve' with nil or result of
@@ -857,7 +857,7 @@ Call CALLBACK at receive.  Call CALLBACK with nil if error.
 One of argument PROMPT and MESSAGES used as main payload.
 For MAX-TOKENS, TEMPERATURE, TOP-P, FREQUENCY-PENALTY, PRESENCE-PENALTY,
 see `oai-restapi-request-prepare'."
-  (oai--debug "oai-restapi-request-llm 1) %s %s %s" (current-buffer) service oai-restapi-con-token)
+  (oai--debug "oai-restapi--url-request-slim 1) %s %s %s" (current-buffer) service oai-restapi-con-token)
   (let ((url-request-extra-headers (oai-restapi--get-headers service))
         (url-request-method "POST")
         (endpoint (oai-restapi--get-endpoint messages service))
@@ -874,17 +874,17 @@ see `oai-restapi-request-prepare'."
 					              :service service
 					              :stream nil))
                                'utf-8)))
-    (oai--debug "oai-restapi-request-llm 2) prompt: %s" prompt)
-    (oai--debug "oai-restapi-request-llm 3) messages: %s" messages)
-    (oai--debug "oai-restapi-request-llm 4) endpoint: %s %s" endpoint (type-of endpoint))
-    (oai--debug "oai-restapi-request-llm 5) request-data:" (oai-debug--prettify-json-string url-request-data))
+    (oai--debug "oai-restapi--url-request-slim 2) prompt: %s" prompt)
+    (oai--debug "oai-restapi--url-request-slim 3) messages: %s" messages)
+    (oai--debug "oai-restapi--url-request-slim 4) endpoint: %s %s" endpoint (type-of endpoint))
+    (oai--debug "oai-restapi--url-request-slim 5) request-data:" (oai-debug--prettify-json-string url-request-data))
 
     ;; (setq url-request-buffer
     (url-retrieve ; <- - - - - - - - -  MAIN
      endpoint
      (lambda (events)
-       "oai-restapi-request-llm main callback."
-       (oai--debug "oai-restapi-request-llm 6) *url-retrieve callback*:" events)
+       "oai-restapi--url-request-slim main callback."
+       (oai--debug "oai-restapi--url-request-slim 6) *url-retrieve callback*:" events)
        ;; debug
        (let (oai-restapi--url-buffer-last-position-marker)
          (oai-restapi--debug-urllib (current-buffer)))
@@ -895,7 +895,7 @@ see `oai-restapi-request-prepare'."
          (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
            ;; (save-excursion
            (goto-char url-http-end-of-headers)
-           (oai--debug "oai-restapi-request-llm 7) " url-http-end-of-headers)
+           (oai--debug "oai-restapi--url-request-slim 7) " url-http-end-of-headers)
 
            (let ((data (oai-restapi--json-safe-decoding (buffer-substring-no-properties (point) (point-max)))))
              (when data
@@ -912,7 +912,7 @@ see `oai-restapi-request-prepare'."
 ;;   (oai-timers--progress-reporter-run
 ;;    1
 ;;    (lambda (buf) (oai-timers--interrupt-current-request buf #'oai-restapi--interrupt-url-request))
-;;    (oai-restapi-request-llm service model (lambda (result)
+;;    (oai-restapi--url-request-slim service model (lambda (result)
 ;;                                            (oai-timers--interrupt-current-request (current-buffer) #'oai-restapi--stop-tracking-url-request)
 ;;                                            (print (list "hay" result)))
 ;;                            :timeout 20
@@ -926,7 +926,7 @@ see `oai-restapi-request-prepare'."
 
 
 (cl-defun oai-restapi-request-llm-retries (service model timeout callback &optional &key retries prompt messages header-marker max-tokens temperature top-p frequency-penalty presence-penalty)
-  "`oai-restapi-request-llm' function with TIMEOUT and RETRIES.
+  "`oai-restapi--url-request-slim' function with TIMEOUT and RETRIES.
 Only one request per ai block is allowed at one time.
 Timer function restart requst and restart timer with attempts-1.
 In callback we add cancel timer function.
@@ -995,23 +995,23 @@ We store url-buf with marker of header in oai-timers.el"
                 (progn
                   (oai--debug "oai-restapi-request-llm-retries2 %s" (current-buffer))
                   ;; - 2) make request
-                  (oai-restapi-request-llm service model
+                  (oai-restapi--url-request-slim service model
                                            (lambda (result-llm)
-                                             (oai--debug "oai-restapi-request-llm callback1, result: %s" result-llm)
+                                             (oai--debug "oai-restapi--url-request-slim callback1, result: %s" result-llm)
                                              (if timer
                                                  (cancel-timer timer))
-                                             (oai--debug "oai-restapi-request-llm  callback2")
+                                             (oai--debug "oai-restapi--url-request-slim  callback2")
                                              ;; (with-current-buffer cb
-                                             (oai--debug "oai-restapi-request-llm  callback3 %s" result-llm)
+                                             (oai--debug "oai-restapi--url-request-slim  callback3 %s" result-llm)
                                              (if result-llm
                                                  (progn
-                                                   (oai--debug "oai-restapi-request-llm here")
+                                                   (oai--debug "oai-restapi--url-request-slim here")
                                                    (run-at-time 0 nil callback result-llm))
                                                ;; else - nil returned - error - retry
                                                (if (> left-retries 0)
                                                    (progn
-                                                     ;; oai-restapi-request-llm
-                                                    (oai--debug "oai-restapi-request-llm here2")
+                                                     ;; oai-restapi--url-request-slim
+                                                    (oai--debug "oai-restapi--url-request-slim here2")
                                                     ;; retrie after 3 sec
                                                     (run-at-time 3 nil (lambda () (oai-restapi-request-llm-retries service model timeout callback
                                                                                                                    :retries left-retries
@@ -1023,14 +1023,14 @@ We store url-buf with marker of header in oai-timers.el"
                                                                                                                    :frequency-penalty frequency-penalty
                                                                                                                    :presence-penalty presence-penalty))))
                                                  ;; else - failed
-                                                 (oai--debug "oai-restapi-request-llm failed")
+                                                 (oai--debug "oai-restapi--url-request-slim failed")
                                                  (run-at-time 0 nil callback nil)
 
                                                  (oai-block-insert-result-message "Failed" header-marker)
 
                                                  (oai-timers--update-global-progress-reporter)))
 
-                                             (oai--debug "oai-restapi-request-llm  callback4"))
+                                             (oai--debug "oai-restapi--url-request-slim  callback4"))
                                            :prompt prompt
                                            :messages  messages
                                            :max-tokens max-tokens

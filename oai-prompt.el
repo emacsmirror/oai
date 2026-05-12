@@ -141,7 +141,7 @@ Aspects:
 2) error handling: kill reporter, kill tmp buffer, kill timers
 Execution Chain:
 `oai-restapi-request-llm-retries'
-`oai-restapi-request-llm'
+`oai-restapi--url-request-slim'
 Modeline notification:
 1) `oai-timers--set' used in `oai-restapi-request-llm-retries'.
 2) `oai-timers--set' here
