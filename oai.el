@@ -714,7 +714,7 @@ Used in `oai-open-request-buffer'."
       (setq oai-mode-line-string (format " oai[%d]" count))
     ;; else
     (setq oai-mode-line-string " oai"))
-  (force-mode-line-update))
+  (force-mode-line-update t))
 
 ;; -=-= aliases
 (defalias 'oai-tangle #'org-babel-tangle)

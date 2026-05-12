@@ -652,6 +652,19 @@ Key JSON Structure Details
 - type: "input_audio": Specifies the modality.
 - data: The base64-encoded audio content.
 - format: The audio format (e.g., "wav", "mp3").
+* oai-timers.el: Progress Reporter and counting requests [2026-05-12 Tue]
+modeline set with: ~oai-timers--oai-update-mode-line~ in:
+  - ~(length (oai-timers--get-all-keys))~ - get count of all requests
+  - ~oai-timers--update-global-progress-reporter~
+
+*progress reporter* set with (~make-progress-reporter~, ~progress-reporter-update~, ~progress-reporter-done~) in:
+- ~oai-timers--progress-reporter-run~ - run timer that just make reporter visible every second
+- ~oai-timers--stop-global-progress-reporter~
+
+New request run: ~oai-timers--progress-reporter-run~
+- set modeline, count
+
+“Now, we dont show” comment used for disabling ouput of current request in mideline
 * Tests: Not covered staff
 - font-locks
 - fill paragraph
