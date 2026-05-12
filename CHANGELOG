@@ -1,9 +1,9 @@
 # -*- mode: org -*-
-* v0.4    UNRELEASED
+* v0.3.1 [2026-05-12 Tue]
 
 ** Functional changes:
 
-- added ability to send images, see [[file:./doc.org::534::*Image link: json][Image link: json]]
+- added ability to send images and audio files like ~@/a.jpg~ or ~[[/a.wav]]~ or ~[[file:/a.jpg]]~, see [[file:./doc.org::534::*Image link: json][Image link: json]]
 
 - added hook that allow to modify any parameter of request
 
@@ -16,6 +16,7 @@
 - fixed completion mode, now still supported
 
 - refactor of parsing ai block header in oai.el
+
 
 * v0.3 [2026-04-26 Sun]
 
