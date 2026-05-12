@@ -718,7 +718,7 @@ on the current line.
 If text is nil, it counts as INSERT-ME and FINAL.
 
 Set as callback `oai-restapi--url-request-on-change-function' in
-`oai-restapi-request'.
+`oai-restapi--url-request'.
 - END-MARKER is where to put result, is a buffer and position at the end
   of block, from `oai-block--get-content-end-marker' function.
 - TEXT  is  string  from  the  response of  OpenAI  API  extracted  with
@@ -820,7 +820,7 @@ END-MARKER'is where to put result,
 RESPONSES is a list of oai-block--response, processed by
 `oai-restapi--normalize-response', consist of type symbol and payload
 string.
-Used as callback for `oai-restapi-request', called in url buffer.
+Used as callback for `oai-restapi--url-request', called in url buffer.
 
 Called within url-buffer.
 Use buffer-local variables:

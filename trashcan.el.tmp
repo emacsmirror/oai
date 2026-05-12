@@ -164,7 +164,7 @@ To a"
       (if url-request-buffer
           (with-current-buffer url-request-buffer
             (oai--debug-urllib url-request-buffer)
-            (oai-restapi--maybe-show-openai-request-error) ; TODO: change to RESULT by global customizable option
+            (oai-restapi--url-maybe-show-request-error) ; TODO: change to RESULT by global customizable option
 
             ;; - read from url-buffer
             (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)

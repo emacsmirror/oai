@@ -292,7 +292,7 @@ Called from
 2) INTERRUPT-REQUEST-FUNC - When timer expired kill all by calling for
 every buffer.
 Require that url-buffer was saved with `oai-timers--set', to count them.
-Called from `oai-restapi-request'.
+Called from `oai-restapi-request-prepare'.
 Set:
 - `oai-timers--global-progress-reporter' - lambda that return a string,
 - `oai-timers--global-progress-timer' - timer that output /-\ to echo area.

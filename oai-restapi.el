@@ -46,7 +46,7 @@
 ;; - -> `oai-restapi-prepare-content' (old)
 ;; - -> `oai-block-tags-get-content' (new)
 ;;
-;; - oai-restapi-request
+;; - oai-restapi--url-request
 ;; - :message (oai-restapi--collect-chat-messages ...)
 ;; - (oai-restapi--normalize-response response) -> (cl-loop for response in normalized
 ;;   - (setq role (oai--response-type response))
@@ -529,7 +529,7 @@ If MESSAGES are provided, type of request is chat, otherwise completion."
 ;; noweb-control sys-prompt sys-prompt-for-all-messages &optional _info
 (defun oai-restapi-request-prepare (req-type content element model max-tokens top-p temperature frequency-penalty presence-penalty service stream)
   "Compose API request from data and start a server-sent event stream.
-Call `oai-restapi-request' function as a next step.
+Call `oai-restapi--url-request' function as a next step.
 Called from `oai-call-block' in main file.
 ELEMENT org-element - is ai block, should be converted to market at
 once.
@@ -567,7 +567,7 @@ once.
                                                                            t))))))
     ;; - Call and save buffer.
     (oai-timers--set
-     (oai-restapi-request service model callback
+     (oai-restapi--url-request service model callback
                           :prompt (when (eql req-type 'completion) content) ; if completion - string
                           :messages (when (not (eql req-type 'completion)) content) ; chat - vector
                           :max-tokens max-tokens
@@ -581,7 +581,7 @@ once.
     (oai-timers--progress-reporter-run
      #'oai-restapi--interrupt-url-request)))
 
-;; -=-= Normalize, oai-restapi-request
+;; -=-= Normalize, oai-restapi--url-request
 
 ;; Together.xyz 2025
 ;; '(id "nz7KyaB-3NKUce-9539d1912ce8b148" object "chat.completion" created 1750575101 model "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free" prompt []
@@ -590,13 +590,14 @@ once.
 
 (defun oai-restapi--get-single-response-text (&optional response)
   "Return text from RESPONSE or nil and signal error if it have \"error\" field.
-For Completion LLM mode. Used as callback for `oai-restapi-request'.
+RESPONSE is JSON with reply for not-stream request in plist format.
+For Completion LLM mode. Used as callback for `oai-restapi--url-request'.
 Same to `oai-restapi--normalize-response' that used for stream.
 We use separate version, because streaming is complicated,
 but we will keep them interchangable.
 Result used for `oai-block--insert-single-response'.
 Error should be handled before calling this function in
- `oai-restapi--maybe-show-openai-request-error'.
+ `oai-restapi--url-maybe-show-request-error'.
 Return text of message."
   (when response
     (oai--debug "oai-restapi--get-single-response-text response:" response)
@@ -642,7 +643,7 @@ Return text of message."
 ;;              index 0)]))
 (defun oai-restapi--normalize-response (response)
   "This function normalizes JSON data in OpenAI-style but with some differences.
-RESPONSE is one JSON message of the stream response as a chunk of full
+RESPONSE is plist is one JSON message of the stream response as a chunk of full
 response.
 Return list or responses, with every response as `oai-block--response'."
   ;; (oai--debug "response:" response)
@@ -735,8 +736,8 @@ Return list or responses, with every response as `oai-block--response'."
                                 (push (make-oai-block--response :type 'role :payload role) result))
                               result))))))))
 
-
-(cl-defun oai-restapi-request (service model callback &optional &key prompt messages max-tokens temperature top-p frequency-penalty presence-penalty stream)
+;; oai-restapi-request
+(cl-defun oai-restapi--url-request (service model callback &optional &key prompt messages max-tokens temperature top-p frequency-penalty presence-penalty stream)
   "Use API to LLM to request and get response.
 Executed by `oai-restapi-request-prepare'
 PROMPT is string with the query for completions.
@@ -790,10 +791,10 @@ Use argument SERVICE to find endpoint, MODEL as parameter to request."
     ;; - regex check
     (if model
         (oai-restapi--check-model model endpoint)) ; not empty and if "api.openai.com" or "openai.azure.com"
-    (oai--debug "oai-restapi-request service and (type-of service): %s %s" service (type-of service))
-    (oai--debug "oai-restapi-request endpoint and (type-of endpoint): %s %s" endpoint (type-of endpoint))
-    (oai--debug "oai-restapi-request headers: %s" url-request-extra-headers)
-    (oai--debug "oai-restapi-request request-data:" (oai-debug--prettify-json-string url-request-data))
+    (oai--debug "oai-restapi--url-request service and (type-of service): %s %s" service (type-of service))
+    (oai--debug "oai-restapi--url-request endpoint and (type-of endpoint): %s %s" endpoint (type-of endpoint))
+    (oai--debug "oai-restapi--url-request headers: %s" url-request-extra-headers)
+    (oai--debug "oai-restapi--url-request request-data:" (oai-debug--prettify-json-string url-request-data))
 
 
     (oai--debug "Main request before, that return a \"urllib buffer\".")
@@ -801,7 +802,7 @@ Use argument SERVICE to find endpoint, MODEL as parameter to request."
            (url-retrieve ; <- - - - - - - - -  MAIN
             endpoint
             (lambda (_events)
-              (oai--debug "oai-restapi-request in event" (current-buffer) oai-restapi-show-error-function)
+              (oai--debug "oai-restapi--url-request in event" (current-buffer) oai-restapi-show-error-function)
               ;; "Called within url-request-buffer after `after-change-functions'"
               ;; debug
               (let (oai-restapi--url-buffer-last-position-marker)
@@ -809,7 +810,7 @@ Use argument SERVICE to find endpoint, MODEL as parameter to request."
               ;; error handling and not-stream insert
               (unwind-protect
                   (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
-                      (unless (oai-restapi--maybe-show-openai-request-error) ; t if error
+                      (unless (oai-restapi--url-maybe-show-request-error) ; t if error
                         (unless stream
                           (goto-char url-http-end-of-headers)
                           ;; insert [ME]
@@ -835,7 +836,7 @@ Use argument SERVICE to find endpoint, MODEL as parameter to request."
 
         ;; - set current global value as permanent in local buffer.
         (set (make-local-variable 'oai-restapi-show-error-function) (symbol-value 'oai-restapi-show-error-function))
-        (oai--debug "oai-restapi-request " oai-restapi-show-error-function)
+        (oai--debug "oai-restapi--url-request " oai-restapi-show-error-function)
 
         ;; - for stream add hook, otherwise remove - do word by word output (optional actually)
         (if stream
@@ -847,7 +848,7 @@ Use argument SERVICE to find endpoint, MODEL as parameter to request."
 
 ;; -=-= oai-restapi-request-llm
 (cl-defun oai-restapi-request-llm (service model callback &optional &key prompt messages max-tokens temperature top-p frequency-penalty presence-penalty)
-  "Simplified version of `oai-restapi-request' without stream support.
+  "Simplified version of `oai-restapi--url-request' without stream support.
 Used for building agents or chain of requests.
 Call CALLBACK called from callback of `url-retrieve' with nil or result of
 `oai-restapi--normalize-response' of response.
@@ -888,7 +889,7 @@ see `oai-restapi-request-prepare'."
        (let (oai-restapi--url-buffer-last-position-marker)
          (oai-restapi--debug-urllib (current-buffer)))
        ;;
-       (if (oai-restapi--maybe-show-openai-request-error) ; TODO: change to RESULT by global customizable option
+       (if (oai-restapi--url-maybe-show-request-error) ; TODO: change to RESULT by global customizable option
            (funcall callback nil) ; signal error to callback
          ;; else - read from url-buffer
          (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
@@ -1044,7 +1045,7 @@ We store url-buf with marker of header in oai-timers.el"
 
 ;; -=-= error, payload, url-request-on-change-function
 
-(defun oai-restapi--maybe-show-openai-request-error ()
+(defun oai-restapi--url-maybe-show-request-error ()
   "If the API request returned an error, show it.
 `REQUEST-BUFFER' is the buffer containing the request.
 If http-code is nil - C\\-g was used to stop all.
@@ -1052,7 +1053,7 @@ Return t if error happen, otherwise nil.
 If C\\-g was used return nil.
 Uses global variable `oai-restapi-show-error-function'.
 Should be executed in url-buffer only."
-  (oai--debug "oai-restapi--maybe-show-openai-request-error1")
+  (oai--debug "oai-restapi--url-maybe-show-request-error1")
   (save-excursion ; ??
     (let ((http-code (url-http-symbol-value-in-buffer 'url-http-response-status (current-buffer))) ; should be integer, but may not be
           (http-data (if (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
@@ -1069,13 +1070,13 @@ Should be executed in url-buffer only."
           ret)
       (unless (numberp http-code)
         (setq http-code nil))
-      (oai--debug "oai-restapi--maybe-show-openai-request-error2 %s" http-code)
+      (oai--debug "oai-restapi--url-maybe-show-request-error2 %s" http-code)
       (when (boundp 'url-http-end-of-headers)
-        (oai--debug "oai-restapi--maybe-show-openai-request-error22 %s " url-http-end-of-headers))
+        (oai--debug "oai-restapi--url-maybe-show-request-error22 %s " url-http-end-of-headers))
       (setq ret
             (or
              (when (and http-code (/= http-code 200))
-               (oai--debug "oai-restapi--maybe-show-openai-request-error3")
+               (oai--debug "oai-restapi--url-maybe-show-request-error3")
                (funcall oai-restapi-show-error-function (format "HTTP Error from the service: %s %s \n %s" http-code http-data http-header-first-line)
                         (oai-timers--get-variable (current-buffer))) ; header-marker
                t)
@@ -1094,7 +1095,7 @@ Should be executed in url-buffer only."
                                                                       "Error from the service API:\n\t" mes)
                               (oai-timers--get-variable (current-buffer)))) ; header-marker
                  (error nil)))))
-      (oai--debug "oai-restapi--maybe-show-openai-request-error3 %s" ret)
+      (oai--debug "oai-restapi--url-maybe-show-request-error3 %s" ret)
       ret)))
 
 

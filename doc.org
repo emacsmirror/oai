@@ -527,7 +527,7 @@ strategy:
 2) in oai-block-tags-get-content-ai-messages detect image link and split message accordingly, modify
  ~oai-block-tags-replace~, enshure that  ~oai-block-msgs--modify-vector-content~ and ~oai-block-msgs--modify-vector-last-user-content~ is consistent
 
-oai-parse-org-header -> oai-request-prepare -> oai-restapi-request
+oai-parse-org-header -> oai-request-prepare -> oai-restapi--url-request
 - -> oai-restapi--payload - accept messages in any form ( with images)
 
 Idiea: allow :screen, provide list binary files at step of parsing headers somehwere, provide hooks.

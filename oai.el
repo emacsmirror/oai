@@ -139,7 +139,7 @@
 ;; [[file:/usr/share/emacs/30.2/lisp/textmodes/tex-mode.el::1277::(setq-local font-lock-defaults]]
 ;; - small markdown mode on highlighting
 ;; - simple Elisp function to ask LLM
-;; - add guide to use `oai-restapi-request' and with retries for simple
+;; - add guide to use `oai-restapi--url-request' and with retries for simple
 ;;   ELisp LLM call and get result for TAB key and some place in buffer.
 ;; - add option for tag to expand only the last user prompt or in all.
 ;; - C-c C-k should jump to current bexgining of message, not next
