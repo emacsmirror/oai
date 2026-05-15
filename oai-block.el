@@ -351,7 +351,7 @@ Return new value."
                 default)))
     ;; 2. Declarative Type Casting
     (pcase type
-      ('number (cond ((or (null v) (eq v t) (equal v "nil")) nil) ; empty or "nil"
+      ('number (cond ((or (null v) (eq v t) (and (stringp v) (string-equal v "nil"))) nil) ; key without value or "nil"
                      ((stringp v) (string-to-number v))
                      ((numberp v) v)
                      (t (user-error "Invalid number: %s" v))))
@@ -359,8 +359,9 @@ Return new value."
                           (and (stringp v)
                                (member (downcase v) '("t" "true" "yes" "on" "1")))))
                  t))
-      ('string (if (eq v t) ; empty
-                   nil
+      ('string (if (or (eq v t) ; key without value
+                       (string-equal v "nil")) ; key with nil
+                       nil
                  ;; else
                  v))
       (_ v))))

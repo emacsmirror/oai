@@ -1,4 +1,11 @@
 # -*- mode: org -*-
+* v0.3.2 UNRELEASED
+
+** Functional changes:
+
+- Displaying count of active request moved to “progress reporter” notification.
+
+
 * v0.3.1 [2026-05-12 Tue]
 
 ** Functional changes:

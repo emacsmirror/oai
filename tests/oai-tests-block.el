@@ -121,7 +121,6 @@ and INFO-ALIST is the parameters from its header."
       (should (equal (org-element-property :type element) "ai")))))
 
 ;; -=-= Test for `oai-block--let-params-macro'
-
 (ert-deftest oai-tests-block--let-params-all-from-info-test1 ()
   "Test when all parameters are provided in the block header (info alist)."
   (with-temp-buffer
@@ -166,9 +165,26 @@ and INFO-ALIST is the parameters from its header."
                                    (should (string-equal model4 nil))
                                    (should (string-equal model3 nil))))))
 
+(ert-deftest oai-tests-block--let-params-all-from-info-strings ()
+  "Test when all parameters are provided in the block header (info alist)."
+  (with-temp-buffer
+    (org-mode)
+    (let* ((test-block "#+begin_ai :sys nil :sys1 \n#+end_ai\n")
+           (element (oai-test-setup-buffer test-block))
+           (default "ss")
+           (info (progn (goto-char (org-element-property :begin element)) (oai-block-get-info))))
+      ;; (unwind-protect
+      ;; Position point inside the block for correct context, though not strictly needed for info directly.
+      (let ((sys (oai-block--get-val info		:sys "SYS" default 'string))
+            (sys1 (oai-block--get-val info		:sys1 "SYS1" default 'string))
+            (sys2 (oai-block--get-val info		:sys2 "SYS2" default 'string)))
+        (should-not sys)
+        (should-not sys1)
+        (should (string-equal sys2 default))))))
+
 
 (ert-deftest oai-tests-block--let-params-all-from-info-test2 ()
-  (cl-letf (((symbol-function 'org-entry-get-with-inheritance)
+  (cl-letf (((symbol-function 'org-entry-get-with-inheritance) ; used in oai-block--get-val
              (lambda (_) nil)))
     (let ((info '((:model)
                   (:model1 . "nil")
@@ -186,7 +202,7 @@ and INFO-ALIST is the parameters from its header."
             (stream3 (oai-block--get-val info :stream3 nil t   'bool))
             (stream4 (oai-block--get-val info :stream4 nil nil 'bool)))
         (should (string-equal model nil))
-        (should (equal model1 "nil"))
+        (should (equal model1 nil))
         (should (equal model2 nil))
         (should (equal stream nil))
         (should (string-equal stream1 nil))

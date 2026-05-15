@@ -5,7 +5,7 @@
 
 * OAI - chat interface to LLMs and AI agents in Org blocks.
 
-*Version 0.3.1*
+*Version 0.3.2*
 Emacs package, provide block ~#+begin_ai~ in Org mode for communication with LLMs APIs. Inspired by Robert Krahn's [[https://github.com/rksm/org-ai][org-ai package]]
 
 Protocol: “OpenAI like” HTTP REST API. (url.el)
@@ -52,18 +52,18 @@ Optional: ~org-links~, available at MELA and at https://github.com/Anoncheg1/ema
 | oai-optional.el   | (optional) Hooks functions for postprocessing                      |
 
 
-** dependencies
+** structure
 #+begin_src text
 oai.el
  ├─ oai-block.el
- ├─ oai-block-tags.el (→ oai-block.el, oai-block-msgs.el)
  ├─ oai-block-msgs.el (→ oai-block.el)
- ├─ oai-restapi.el (→ oai-block.el, oai-block-tags.el, oai-async1.el, oai-timers.el)
+ ├─ oai-block-tags.el (→ oai-block.el, oai-block-msgs.el)
+ ├─ oai-restapi.el (→ oai-block.el, oai-block-msgs.el, oai-async1.el, oai-timers.el)
  └─ oai-prompt.el (→ oai-block.el, oai-block-msgs.el, oai-block-tags.el, oai-restapi.el, oai-async1.el, oai-timers.el)
 #+end_src
 * Supported services *
-- remote: any server that provides an OpenAI-compliant endpoint (like Together).
-- local: like llama.cpp, and vLLM
+- remote: any server that provides an OpenAI-compliant endpoint to LLM model or AI agent.
+- local inference engines like llama.cpp, vLLM, huggingface, etc.
 
 oai-restapi-con-service [[./oai-restapi.el]]
 
@@ -315,7 +315,7 @@ For make *chain of calls* we have ~oai-async1.el~ static framework that simplify
 For *keys remapping* we bind keys to Org commands or key if pointer is not in ai-block, we call original key or command with “hack” functions.
 
 ** How images sent?
-We do it in two steps, first we replace image link or tag with ~@image:/path.jpg~ in ~oai-block-tags-replace~ and in ~oai-block-tags--compose-block-for-path-full~ as any other link, then ~oai-restapi--payload~ we encode image to base64 and split text around link and replace string in :context to a vector.
+We do it in two steps, first we replace image link or tag with ~@image_jpeg:/path.jpg~ in ~oai-block-tags-replace~ and in ~oai-block-tags--compose-block-for-path-full~ as any other link, then ~oai-restapi--payload~ we encode image to base64 and split text around link and replace string in :context to a vector.
 
 * Other packages
 - Navigation in Dired, Packages, Buffers modes https://github.com/Anoncheg1/firstly-search
