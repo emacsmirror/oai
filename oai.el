@@ -285,7 +285,7 @@ Return list values from ai block header or ORG properties set by looking
           (presence-penalty (oai-block--get-val info	:presence-penalty "PRESENCE-PENALTY" nil 'number))
           (stream (oai-block--get-val info		:stream "STREAM" t 'bool)))
       (when (and info (not (assoc :model info)))
-        (user-error "Model not specified nor in ai block nor in oai-restapi-con-model. Please add :model key without value to header to disable."))
+        (user-error "Model not specified nor in ai block nor in oai-restapi-con-model.  Please add :model key without value to header to disable.?"))
       (list element noweb-control sys-prompt model max-tokens top-p temperature frequency-penalty presence-penalty service stream ; model params
             info))))
 
