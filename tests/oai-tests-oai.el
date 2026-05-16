@@ -71,9 +71,9 @@ Please
 
 [ME]: VV"))
         ;; (print (setq res (oai-expand-block-deep)))))
-        ;; (print (setq res (oai-expand-block-deep)))
+        (setq res (oai-expand-block-deep))
         (should (equal
-                 (oai-expand-block-deep)
+                 res
                  '("https://api.openai.com/v1/chat/completions" (("Content-Type" . "application/json") ("Authorization" . "Bearer token"))
                    ((messages . [(:role system :content "Be helpful.") (:role user :content "asdas\nPlease") (:role assistant :content "My output") (:role user :content "VV")]) (model . "gpt-4o-mini") (stream . t)))
         ))))))
@@ -165,20 +165,18 @@ asd2
              (result (apply 'oai-debug--safe-format fmt args)))
         (should (equal result expected))))))
 ;; -=-= Test oai--expand-block-deep-masking-chat
-
 (ert-deftest oai--expand-block-deep-masking-chat () ; for masking chat prefixes
   (let ((tmpfile (make-temp-file "masking-chat-prefix" nil ".org")))
     (with-temp-file tmpfile
-      (insert "#+begin_ai\n")
+      (insert "#+begin_ai :model\n")
       (let ((p1 (point)))
         (insert "\n#+end_ai")
         (goto-char p1))
-      (insert "test\n\n[ai]:\nblabla\n\n[ME]: vv")
-      )
+      (insert "test\n\n[ai]:\nblabla\n\n[ME]: vv"))
 
     (with-temp-buffer
       (org-mode)
-      (insert "#+begin_ai\n")
+      (insert "#+begin_ai :model\n")
       (let ((p1 (point)))
         (insert "\n#+end_ai")
         (goto-char p1))
@@ -196,7 +194,7 @@ asd2
 
     (with-temp-buffer
       (org-mode)
-      (insert "#+begin_ai\n")
+      (insert "#+begin_ai :model\n")
       (let ((p1 (point)))
         (insert "\n#+end_ai")
         (goto-char p1))

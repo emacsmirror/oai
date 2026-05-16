@@ -284,10 +284,8 @@ Return list values from ai block header or ORG properties set by looking
           (frequency-penalty (oai-block--get-val info	:frequency-penalty "FREQUENCY-PENALTY" nil 'number))
           (presence-penalty (oai-block--get-val info	:presence-penalty "PRESENCE-PENALTY" nil 'number))
           (stream (oai-block--get-val info		:stream "STREAM" t 'bool)))
-      (unless model
-        (user-error "Model not specified nor in ai block nor in oai-restapi-con-model.  To disable model completely set it to \"nil\""))
-      (when (string-equal-ignore-case model "nil")
-        (setq model nil)) ; if specified as "nil" string explicitly, to disable.
+      (when (and info (not (assoc :model info)))
+        (user-error "Model not specified nor in ai block nor in oai-restapi-con-model. Please add :model key without value to header to disable."))
       (list element noweb-control sys-prompt model max-tokens top-p temperature frequency-penalty presence-penalty service stream ; model params
             info))))
 
@@ -321,6 +319,7 @@ Return string or vector."
 (defun oai-expand-block-deep ()
   "Output almost RAW information about request with headers and messages.
 Return list of strings to print."
+  ;; `oai-parse-org-header'
   (seq-let (element noweb-control sys-prompt model max-tokens top-p temperature frequency-penalty presence-penalty service stream info) (oai-parse-org-header)
     (let* ((req-type (oai-block--get-request-type info))
            (max-tokens-string (when (and max-tokens
